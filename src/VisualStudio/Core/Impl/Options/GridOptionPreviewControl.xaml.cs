@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Microsoft.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -112,24 +113,22 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             var optionSet = this.ViewModel.ApplyChangedOptions(this.OptionService.GetOptions());
             var editorconfig = new StringBuilder();
             Generate_Editorconfig(optionSet, _language, editorconfig, _getLangaugeSpecificEditorConfigOptions);
-            var sfd = new System.Windows.Forms.SaveFileDialog
+            using (var sfd = new System.Windows.Forms.SaveFileDialog
             {
                 Filter = "All files (*.*)|",
                 FileName = ".editorconfig",
                 Title = "Save .editorconfig file"
-            };
-            if (sfd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            })
             {
-                IOUtilities.PerformIO(() =>
+                if (sfd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
-                    var path = sfd.FileName;
-                    using (var sw = new StreamWriter(File.Create(path)))
+                    IOUtilities.PerformIO(() =>
                     {
-                        sw.Write(editorconfig);
-                        sw.Close();
-                    }
-                });
-            }
+                        var filePath = sfd.FileName;
+                        File.WriteAllText(filePath, editorconfig.ToString());
+                    });
+                }
+            };
         }
 
         internal static void Generate_Editorconfig(
@@ -163,19 +162,19 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             }
 
             // indent_style
-            CoreCodeStyleOptions_GenerateEditorconfig(optionSet, FormattingOptions.UseTabs, language, editorconfig);
+            TabsOrSpaces_GenerateEditorconfig(optionSet, FormattingOptions.UseTabs, language, editorconfig);
             // indent_size
-            CoreCodeStyleOptions_GenerateEditorconfig(optionSet, FormattingOptions.IndentationSize, language, editorconfig);
+            GeneralCodeStyleOptions_GenerateEditorconfig(optionSet, FormattingOptions.IndentationSize, language, editorconfig);
             // insert_final_newline
             CoreCodeStyleOptions_GenerateEditorconfig(optionSet, FormattingOptions.InsertFinalNewLine, editorconfig);
         }
 
-        private static void CoreCodeStyleOptions_GenerateEditorconfig(OptionSet optionSet, PerLanguageOption<bool> option, string language, StringBuilder editorconfig)
+        private static void TabsOrSpaces_GenerateEditorconfig(OptionSet optionSet, PerLanguageOption<bool> option, string language, StringBuilder editorconfig)
         {
             var element = option.StorageLocations.OfType<EditorConfigStorageLocation<bool>>().FirstOrDefault();
             if (element != null)
             {
-                editorconfig.Append(element.KeyName + " = ");
+                AppendName(element.KeyName, editorconfig);
                 var curSetting = optionSet.GetOption(option, language);
                 if (curSetting)
                 {
@@ -188,13 +187,13 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             }
         }
 
-        private static void CoreCodeStyleOptions_GenerateEditorconfig(OptionSet optionSet, PerLanguageOption<int> option, string language, StringBuilder editorconfig)
+        private static void GeneralCodeStyleOptions_GenerateEditorconfig<T>(OptionSet optionSet, PerLanguageOption<T> option, string language, StringBuilder editorconfig)
         {
-            var element = option.StorageLocations.OfType<EditorConfigStorageLocation<int>>().FirstOrDefault();
+            var element = option.StorageLocations.OfType<EditorConfigStorageLocation<T>>().FirstOrDefault();
             if (element != null)
             {
-                editorconfig.Append(element.KeyName + " = ");
-                editorconfig.AppendLine(optionSet.GetOption(option, language).ToString());
+                AppendName(element.KeyName, editorconfig);
+                editorconfig.AppendLine(optionSet.GetOption(option, language).ToString().ToLowerInvariant());
             }
         }
 
@@ -203,7 +202,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             var element = option.StorageLocations.OfType<EditorConfigStorageLocation<bool>>().FirstOrDefault();
             if (element != null)
             {
-                editorconfig.Append(element.KeyName + " = ");
+                AppendName(element.KeyName, editorconfig);
                 editorconfig.AppendLine(optionSet.GetOption(option).ToString().ToLowerInvariant());
             }
         }
@@ -215,7 +214,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
   
             editorconfig.AppendLine("# Organize usings:");
             // dotnet_sort_system_directives_first
-            DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, GenerationOptions.PlaceSystemNamespaceFirst, language, editorconfig);
+            GeneralCodeStyleOptions_GenerateEditorconfig(optionSet, GenerationOptions.PlaceSystemNamespaceFirst, language, editorconfig);
 
             editorconfig.AppendLine();
             if (language == LanguageNames.CSharp)
@@ -286,25 +285,16 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             // dotnet_style_prefer_conditional_expression_over_return
             DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.PreferConditionalExpressionOverReturn, language, editorconfig);
         }
-        private static void DotNetCodeStyleOptions_GenerateEditorconfig(OptionSet optionSet, PerLanguageOption<bool> option, string language, StringBuilder editorconfig)
-        {
-            var element = option.StorageLocations.OfType<EditorConfigStorageLocation<bool>>().FirstOrDefault();
-            if (element != null)
-            {
-                editorconfig.Append(element.KeyName + " = ");
-                editorconfig.AppendLine(optionSet.GetOption(option, language).ToString().ToLowerInvariant());
-            }
-        }
 
         private static void DotNetCodeStyleOptions_GenerateEditorconfig(OptionSet optionSet, PerLanguageOption<CodeStyleOption<bool>> option, string language, StringBuilder editorconfig)
         {
             var element = option.StorageLocations.OfType<EditorConfigStorageLocation<CodeStyleOption<bool>>>().FirstOrDefault();
             if (element != null)
             {
-                editorconfig.Append(element.KeyName + " = ");
+                AppendName(element.KeyName, editorconfig);
 
                 var curSetting = optionSet.GetOption(option, language);
-                editorconfig.AppendLine(curSetting.Value.ToString().ToLowerInvariant() + ":" + curSetting.Notification.ToString().ToLowerInvariant());
+                editorconfig.AppendLine(curSetting.Value.ToString().ToLowerInvariant() + ":" + NotificationOptionToString(curSetting.Notification));
             }
         }
 
@@ -317,16 +307,16 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             var element = option.StorageLocations.OfType<EditorConfigStorageLocation<CodeStyleOption<ParenthesesPreference>>>().FirstOrDefault();
             if (element != null)
             {
-                editorconfig.Append(element.KeyName + " = ");
+                AppendName(element.KeyName, editorconfig);
 
                 var curSetting = optionSet.GetOption(option, language);
                 if (curSetting.Value == ParenthesesPreference.AlwaysForClarity)
                 {
-                    editorconfig.AppendLine("always_for_clarity:" + curSetting.Notification.ToString().ToLowerInvariant());
+                    editorconfig.AppendLine("always_for_clarity:" + NotificationOptionToString(curSetting.Notification));
                 }
                 else if (curSetting.Value == ParenthesesPreference.NeverIfUnnecessary)
                 {
-                    editorconfig.AppendLine("never_if_unnecessary:" + curSetting.Notification.ToString().ToLowerInvariant());
+                    editorconfig.AppendLine("never_if_unnecessary:" + NotificationOptionToString(curSetting.Notification));
                 }
                 else
                 {
@@ -344,25 +334,41 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             var element = option.StorageLocations.OfType<EditorConfigStorageLocation<CodeStyleOption<AccessibilityModifiersRequired>>>().FirstOrDefault();
             if (element != null)
             {
-                editorconfig.Append(element.KeyName + " = ");
+                AppendName(element.KeyName, editorconfig);
 
                 var curSetting = optionSet.GetOption(option, language);
-                if (curSetting.Value == AccessibilityModifiersRequired.ForNonInterfaceMembers)
+                switch (curSetting.Value)
                 {
-                    editorconfig.AppendLine("for_non_interface_members:" + curSetting.Notification.ToString().ToLowerInvariant());
+                    case AccessibilityModifiersRequired.ForNonInterfaceMembers:
+                        editorconfig.AppendLine("for_non_interface_members:" + NotificationOptionToString(curSetting.Notification));
+                        break;
+                    case AccessibilityModifiersRequired.OmitIfDefault:
+                        editorconfig.AppendLine("omit_if_default:" + NotificationOptionToString(curSetting.Notification));
+                        break;
+                    case AccessibilityModifiersRequired.Always:
+                    case AccessibilityModifiersRequired.Never:
+                        editorconfig.AppendLine(curSetting.Value.ToString().ToLowerInvariant() + ":" + NotificationOptionToString(curSetting.Notification));
+                        break;
+                    default:
+                        throw new NotSupportedException();
                 }
-                else if (curSetting.Value == AccessibilityModifiersRequired.OmitIfDefault)
-                {
-                    editorconfig.AppendLine("omit_if_default:" + curSetting.Notification.ToString().ToLowerInvariant());
-                }
-                else if (curSetting.Value == AccessibilityModifiersRequired.Always || curSetting.Value == AccessibilityModifiersRequired.Never)
-                {
-                    editorconfig.AppendLine(curSetting.Value.ToString().ToLowerInvariant() + ":" + curSetting.Notification.ToString().ToLowerInvariant());
-                }
-                else
-                {
-                    throw new NotSupportedException();
-                }
+            }
+        }
+
+        internal static void AppendName(string name, StringBuilder editorconfig)
+        {
+            editorconfig.Append(name + " = ");
+        }
+
+        internal static string NotificationOptionToString(NotificationOption notificationOption)
+        {
+            if (notificationOption == NotificationOption.Silent)
+            {
+                return "refactoring_only";
+            }
+            else
+            {
+                return notificationOption.ToString().ToLowerInvariant();
             }
         }
     }
