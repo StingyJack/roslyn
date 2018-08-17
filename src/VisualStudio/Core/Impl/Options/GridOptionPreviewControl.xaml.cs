@@ -148,8 +148,8 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             editorconfig.AppendLine("# Core EditorConfig Options");
             editorconfig.AppendLine("# Comment the line below if you want to inherit parent .editorconfig settings.");
             editorconfig.AppendLine("root = true");
-
             editorconfig.AppendLine();
+
             if (language == LanguageNames.CSharp)
             {
                 editorconfig.AppendLine("# C# files");
@@ -164,9 +164,9 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             // indent_style
             TabsOrSpaces_GenerateEditorconfig(optionSet, FormattingOptions.UseTabs, language, editorconfig);
             // indent_size
-            GeneralCodeStyleOptions_GenerateEditorconfig(optionSet, FormattingOptions.IndentationSize, language, editorconfig);
+            GeneralOptions_GenerateEditorconfig(optionSet, FormattingOptions.IndentationSize, language, editorconfig);
             // insert_final_newline
-            CoreCodeStyleOptions_GenerateEditorconfig(optionSet, FormattingOptions.InsertFinalNewLine, editorconfig);
+            GeneralOptions_GenerateEditorconfig(optionSet, FormattingOptions.InsertFinalNewLine, editorconfig);
         }
 
         private static void TabsOrSpaces_GenerateEditorconfig(OptionSet optionSet, PerLanguageOption<bool> option, string language, StringBuilder editorconfig)
@@ -187,7 +187,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             }
         }
 
-        private static void GeneralCodeStyleOptions_GenerateEditorconfig<T>(OptionSet optionSet, PerLanguageOption<T> option, string language, StringBuilder editorconfig)
+        internal static void GeneralOptions_GenerateEditorconfig<T>(OptionSet optionSet, PerLanguageOption<T> option, string language, StringBuilder editorconfig)
         {
             var element = option.StorageLocations.OfType<EditorConfigStorageLocation<T>>().FirstOrDefault();
             if (element != null)
@@ -197,7 +197,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             }
         }
 
-        private static void CoreCodeStyleOptions_GenerateEditorconfig(OptionSet optionSet, Option<bool> option, StringBuilder editorconfig)
+        private static void GeneralOptions_GenerateEditorconfig(OptionSet optionSet, Option<bool> option, StringBuilder editorconfig)
         {
             var element = option.StorageLocations.OfType<EditorConfigStorageLocation<bool>>().FirstOrDefault();
             if (element != null)
@@ -210,11 +210,11 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
         private static void GenerateEditorconfig_DotNetSettings(OptionSet optionSet, string language, StringBuilder editorconfig)
         {
             editorconfig.AppendLine();
+
             editorconfig.AppendLine("# .NET Coding Conventions");
-  
             editorconfig.AppendLine("# Organize usings:");
             // dotnet_sort_system_directives_first
-            GeneralCodeStyleOptions_GenerateEditorconfig(optionSet, GenerationOptions.PlaceSystemNamespaceFirst, language, editorconfig);
+            GeneralOptions_GenerateEditorconfig(optionSet, GenerationOptions.PlaceSystemNamespaceFirst, language, editorconfig);
 
             editorconfig.AppendLine();
             if (language == LanguageNames.CSharp)
@@ -234,16 +234,16 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.QualifyMethodAccess, language, editorconfig);
             // dotnet_style_qualification_for_event
             DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.QualifyEventAccess, language, editorconfig);
-
             editorconfig.AppendLine();
+
             editorconfig.AppendLine("# Language keywords vs BCL types preferences:");
             // dotnet_style_predefined_type_for_locals_parameters_members
             DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.PreferIntrinsicPredefinedTypeKeywordInDeclaration, language, editorconfig);
             // dotnet_style_predefined_type_for_member_access
             DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.PreferIntrinsicPredefinedTypeKeywordInMemberAccess, language, editorconfig);
-
             editorconfig.AppendLine();
-            editorconfig.AppendLine("# " + ServicesVSResources.Parentheses_preferences_colon);
+
+            editorconfig.AppendLine("# Parentheses preferences:");
             // dotnet_style_parentheses_in_arithmetic_binary_operators
             DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.ArithmeticBinaryParentheses, language, editorconfig);
             // dotnet_style_parentheses_in_relational_binary_operators
@@ -252,15 +252,15 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.OtherBinaryParentheses, language, editorconfig);
             // dotnet_style_parentheses_in_other_operators
             DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.OtherParentheses, language, editorconfig);
-
             editorconfig.AppendLine();
+
             editorconfig.AppendLine("# Modifier preferences:");
             // dotnet_style_require_accessibility_modifiers
-            DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.RequireAccessibilityModifiers, language, editorconfig);
+            DotNetCodeStyleOptionsAccessibility_GenerateEditorconfig(optionSet, CodeStyleOptions.RequireAccessibilityModifiers, language, editorconfig);
             // dotnet_style_readonly_field
             DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.PreferReadonly, language, editorconfig);
-
             editorconfig.AppendLine();
+
             editorconfig.AppendLine("# Expression-level preferences:");
             // dotnet_style_object_initializer
             DotNetCodeStyleOptions_GenerateEditorconfig(optionSet, CodeStyleOptions.PreferObjectInitializer, language, editorconfig);
@@ -325,7 +325,7 @@ namespace Microsoft.VisualStudio.LanguageServices.Implementation.Options
             }
         }
 
-        private static void DotNetCodeStyleOptions_GenerateEditorconfig(
+        private static void DotNetCodeStyleOptionsAccessibility_GenerateEditorconfig(
             OptionSet optionSet,
             PerLanguageOption<CodeStyleOption<AccessibilityModifiersRequired>> option,
             string language,
